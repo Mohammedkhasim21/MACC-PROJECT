@@ -15,7 +15,7 @@ app.secret_key = "your_secret_key"  # Secret key for session management
 # Simulated user database (for demonstration purposes)
 users = {"admin": "password123"}
 
-# HTML template for login and registration
+# HTML template for login (registration removed)
 AUTH_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -80,13 +80,6 @@ AUTH_TEMPLATE = """
             color: #e74c3c;
             margin-top: 10px;
         }
-        .auth-links {
-            margin-top: 20px;
-        }
-        .auth-links a {
-            color: #007BFF;
-            text-decoration: none;
-        }
     </style>
 </head>
 <body>
@@ -98,15 +91,6 @@ AUTH_TEMPLATE = """
             <button type="submit">Submit</button>
         </form>
         <p class="message">{{ message }}</p>
-        {% if title == "Login" %}
-        <div class="auth-links">
-            <p>Don't have an account? <a href="{{ url_for('register') }}">Register</a></p>
-        </div>
-        {% else %}
-        <div class="auth-links">
-            <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
-        </div>
-        {% endif %}
     </div>
 </body>
 </html>
@@ -195,11 +179,11 @@ HTML_TEMPLATE = """
     </form>
 
     <form method="POST">
-        <input type="text" name="project_name" placeholder="Enter Title Name" required><br>
+        <input type="text" name="project_name" placeholder="Enter Organisation Name" required><br>
         <input type="text" name="categories" placeholder="Enter Interventions/Projects (comma-separated)" required><br>
-        <input type="text" name="values" placeholder="Enter MACC value in USD/ton CO2" required><br>
-        <input type="text" name="widths" placeholder="Enter CO2 Abatement Value (Million tonne)" required><br>
-        <input type="number" name="line_value" placeholder=" Enter Internal carbon price in USD/ton CO2 (optional)"><br>
+        <input type="text" name="values" placeholder="Enter MACC Value In USD/Ton CO2 (comma-separated)" required><br>
+        <input type="text" name="widths" placeholder="Enter CO2 Abatement Value (Million Ton) (comma-separated)" required><br>
+        <input type="number" name="line_value" placeholder=" Enter Internal carbon price in USD/Ton CO2 (optional)"><br>
         <button type="submit">Generate Chart</button>
     </form>
 
@@ -221,17 +205,6 @@ def login():
             return redirect(url_for("index"))
         return render_template_string(AUTH_TEMPLATE, title="Login", message="Invalid credentials.")
     return render_template_string(AUTH_TEMPLATE, title="Login", message="")
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        if username in users:
-            return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
-        users[username] = password
-        return redirect(url_for("login"))
-    return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -266,31 +239,28 @@ def index():
             plt.bar(x_positions, values, width=widths, color=colors, edgecolor='black', align='edge')
 
             for x, y, w in zip(x_positions, values, widths):
-                plt.text(x + w / 2, y + 1, str(y), ha='center', fontsize=20)
+                plt.text(x + w / 2, y + 1, str(y), ha='center',rotation=90, fontsize=20)
 
-            plt.xticks(x_positions + np.array(widths) / 2, categories, ha="center", rotation=90, fontsize=20)
+            plt.xticks(x_positions + np.array(widths) / 2, categories, ha="center",rotation=90,  fontsize=20)
             plt.title(f"Marginal Abatement Cost Curve (MACC) - {project_name}", fontsize=24)
-            plt.xlabel("CO2 Abatement, Million tonne", fontsize=20)
-            plt.ylabel("Internal Carbon Pricing in USD/ton CO2", fontsize=20)
+            plt.xlabel("CO2 Abatement, Million Tonne", fontsize=20)
+            plt.ylabel("MACC Value In USD/Ton CO2", fontsize=20)
 
-            for i, (x, width) in enumerate(zip(x_positions, widths)):
+            for x, width in zip(x_positions, widths):
                 plt.text(x + width / 2, -1.5, f"{int(width)}", ha="center", fontsize=20, color="black")
 
             if line_value is not None:
                 plt.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
                 plt.text(x_positions[-1] + widths[-1] / 2, line_value + 1, f"Internal carbon price {line_value}",
-                         color='red', fontsize=20, ha='center')
+                         color='black', fontsize=20, ha='center')
 
             plt.tick_params(axis='y', labelsize=20)
             plt.subplots_adjust(bottom=0.3, right=0.95)
 
-            # NEW: Add total CO2 abatement vertically next to last bar
             last_x = x_positions[-1]
             last_width = widths[-1]
-            last_value = values[-1]
-            total_text = f"Total:\n{total_abatement:.2f}"
-            plt.text(last_x + last_width + 2, last_value / 2, total_text,
-                     rotation=90, fontsize=20, va='center', color="black")
+            plt.text(last_x + last_width / 2, -5, f"Total: {total_abatement:.1f}",
+                     ha='center', fontsize=20, color="black")
 
             buf = io.BytesIO()
             plt.savefig(buf, format="png")
