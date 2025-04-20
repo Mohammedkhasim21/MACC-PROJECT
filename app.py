@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 
 from flask import Flask, request, render_template_string, redirect, url_for, session
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # type: ignore
 import numpy as np
 import io
 import base64
