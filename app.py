@@ -177,11 +177,11 @@ HTML_TEMPLATE = """
 <body>
   <h2>MACC Chart Generator</h2>
   <form method="POST">
-    <input name="project_name" placeholder="Project Name" required>
-    <input name="categories" placeholder="Categories (comma-separated)" required>
-    <input name="values" placeholder="Values (comma-separated)" required>
-    <input name="widths" placeholder="Widths (comma-separated)" required>
-    <input name="line_value" placeholder="Optional Line Value">
+    <input type="text" name="project_name" placeholder="Enter Organisation Name" required><br>
+        <input type="text" name="categories" placeholder="Enter Interventions/Projects (comma-separated)" required><br>
+        <input type="text" name="values" placeholder="Enter MACC Value In USD/Ton CO2 (comma-separated)" required><br>
+        <input type="text" name="widths" placeholder="Enter CO2 Abatement Value (Million Ton) (comma-separated)" required><br>
+        <input type="number" name="line_value" placeholder=" Enter Internal carbon price in USD/Ton CO2 (optional)"><br>
     <button type="submit">Generate Chart</button>
   </form>
 
@@ -266,26 +266,24 @@ def index():
 
             plt.xticks(x_positions + np.array(widths) / 2, categories, ha="center", rotation=90, fontsize=20)
             plt.title(f"Marginal Abatement Cost Curve (MACC) - {project_name}", fontsize=24)
-            plt.xlabel("CO2 Abatement, Million tonne", fontsize=20)
-            plt.ylabel("Internal Carbon Pricing in USD/ton CO2", fontsize=20)
+            plt.xlabel("CO2 Abatement, Million Tonne", fontsize=20)
+            plt.ylabel("Internal Carbon Pricing USD/Ton CO2", fontsize=20)
 
             for i, (x, width) in enumerate(zip(x_positions, widths)):
                 plt.text(x + width / 2, -1.5, f"{int(width)}", ha="center", fontsize=20, color="black")
 
             if line_value is not None:
-                plt.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                plt.text(x_positions[-1] + widths[-1] / 2, line_value + 1, f"Internal carbon price {line_value}",
-                         color='red', fontsize=20, ha='center')
+                  plt.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
+                  plt.text(x_positions[0] - 0.2, line_value + 1, f"Internal carbon price {line_value}", 
+                  color='black', fontsize=20, ha='left')
 
             plt.tick_params(axis='y', labelsize=20)
             plt.subplots_adjust(bottom=0.3, right=0.95)
 
             last_x = x_positions[-1]
             last_width = widths[-1]
-            last_value = values[-1]
-            total_text = f"Total:\n{total_abatement:.2f}"
-            plt.text(last_x + last_width + 2, last_value / 2, total_text,
-                     rotation=90, fontsize=20, va='center', color="black")
+            plt.text(last_x + last_width / 2, -6, f"Total: {total_abatement:.1f}",
+                     ha='center', fontsize=20, color="black")
 
             buf = io.BytesIO()
             plt.savefig(buf, format="png")
