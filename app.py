@@ -17,6 +17,8 @@ users = {
     "admin": {"password": "password123", "quota": None}
 }
 
+# Templates
+
 AUTH_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -154,11 +156,22 @@ HTML_TEMPLATE = """
     .logout-button:hover {
       background-color: #c82333;
     }
+     .admin-link a {
+      color: #28a745;
+      text-decoration: none;
+    }
+    .admin-link a:hover {
+      text-decoration: underline;
+    }
     .admin-panel-link {
       text-align: center;
       position: relative;
       bottom: 20px;
       font-size: 16px;
+    }
+     .footer, .admin-link {
+      text-align: center;
+      margin-top: 20px;
     }
     @media (max-width: 768px) {
       body {
@@ -178,10 +191,10 @@ HTML_TEMPLATE = """
   <h2>MACC Chart Generator</h2>
   <form method="POST">
     <input type="text" name="project_name" placeholder="Enter Organisation Name" required><br>
-        <input type="text" name="categories" placeholder="Enter Interventions/Projects (comma-separated)" required><br>
-        <input type="text" name="values" placeholder="Enter MACC Value In USD/Ton CO2 (comma-separated)" required><br>
-        <input type="text" name="widths" placeholder="Enter CO2 Abatement Value (Million Ton) (comma-separated)" required><br>
-        <input type="number" name="line_value" placeholder=" Enter Internal carbon price in USD/Ton CO2 (optional)"><br>
+    <input type="text" name="categories" placeholder="Enter Interventions/Projects (comma-separated)" required><br>
+    <input type="text" name="values" placeholder="Enter MACC Value In USD/Ton CO2 (comma-separated)" required><br>
+    <input type="text" name="widths" placeholder="Enter CO2 Abatement Value (Million Ton) (comma-separated)" required><br>
+    <input type="number" name="line_value" placeholder="Enter Internal carbon price in USD/Ton CO2 (optional)"><br>
     <button type="submit">Generate Chart</button>
   </form>
 
@@ -195,11 +208,15 @@ HTML_TEMPLATE = """
   </form>
 
   {% if session['user'] == 'admin' %}
-    <a href="{{ url_for('admin') }}" class="admin-panel-link">Go to Admin Panel</a>
+    <div class="admin-link">
+      <p><a href="{{ url_for('admin') }}">Go to Admin Panel</a></p>
+    </div>
   {% endif %}
 </body>
 </html>
 """
+
+# Routes
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -219,7 +236,7 @@ def register():
         password = request.form["password"]
         if username in users:
             return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
-        users[username] = {"password": password, "quota": 5}  # Default quota
+        users[username] = {"password": password, "quota": 5}
         return redirect(url_for("login"))
     return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
@@ -269,13 +286,13 @@ def index():
             plt.xlabel("CO2 Abatement, Million Tonne", fontsize=20)
             plt.ylabel("Internal Carbon Pricing USD/Ton CO2", fontsize=20)
 
-            for i, (x, width) in enumerate(zip(x_positions, widths)):
-                plt.text(x + width / 2, -1.5, f"{int(width)}", ha="center", fontsize=20, color="black")
+            for x, width in zip(x_positions, widths):
+                plt.text(x + width / 2, -1.5, f"{int(width)}", ha="center", fontsize=20)
 
             if line_value is not None:
-                  plt.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                  plt.text(x_positions[0] - 0.2, line_value + 1, f"Internal carbon price {line_value}", 
-                  color='black', fontsize=20, ha='left')
+                plt.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
+                plt.text(x_positions[0] - 0.2, line_value + 1,
+                         f"Internal carbon price {line_value}", color='black', fontsize=20, ha='left')
 
             plt.tick_params(axis='y', labelsize=20)
             plt.subplots_adjust(bottom=0.3, right=0.95)
@@ -318,19 +335,109 @@ def admin():
         except ValueError:
             message = "Invalid quota input."
 
-    return render_template_string("""<html>
-<head><title>Admin Panel</title></head>
+    return render_template_string("""
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      padding: 2rem;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    input, button {
+      padding: 0.75em;
+      font-size: 1em;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    p.message {
+      text-align: center;
+      color: green;
+      font-weight: bold;
+    }
+    h3 {
+      margin-top: 2rem;
+      color: #555;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    li {
+      background: #f1f1f1;
+      margin: 0.3rem 0;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+    a {
+      display: block;
+      text-align: center;
+      margin-top: 2rem;
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
 <body>
-  <h2>Admin Panel</h2>
-  <form method="POST">
-    <input name="username" placeholder="Username" required>
-    <input name="quota" type="number" placeholder="New quota" required>
-    <button type="submit">Update Quota</button>
-  </form>
-  <p>{{ message }}</p>
+  <div class="container">
+    <h2>Admin Panel</h2>
+    <form method="POST">
+      <input name="username" placeholder="Username" required>
+      <input name="quota" type="number" placeholder="New quota" required>
+      <button type="submit">Update Quota</button>
+    </form>
+    <p class="message">{{ message }}</p>
+    <h3>Current User Quotas:</h3>
+    <ul>
+    {% for username, data in users.items() %}
+      <li><strong>{{ username }}</strong>: {{ data.quota if data.quota is not none else "Unlimited" }}</li>
+    {% endfor %}
+    </ul>
+    <a href="{{ url_for('index') }}">← Back to Main App</a>
+  </div>
 </body>
-</html>""", users=users, message=message)
+</html>
+""", users=users, message=message)
 
+# Run the app
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
