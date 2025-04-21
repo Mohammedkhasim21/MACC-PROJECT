@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 
 from flask import Flask, request, render_template_string, redirect, url_for, session
-import matplotlib.pyplot as plt # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
 import numpy as np
 import io
 import base64
@@ -22,76 +22,60 @@ AUTH_TEMPLATE = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f4f6f8;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background-color: #f9f9f9;
     }
-    .auth-box {
-      background-color: white;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
+    h2 {
       text-align: center;
+      color: #333;
     }
-    input {
-      width: 90%;
-      padding: 10px;
-      margin: 10px 0;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
+    form {
+      display: flex;
+      flex-direction: column;
+      margin: auto;
+      max-width: 400px;
+    }
+    input, button {
+      padding: 0.75em;
+      margin: 0.5em 0;
+      font-size: 1em;
     }
     button {
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #007BFF;
+      background-color: #007bff;
       color: white;
       border: none;
-      border-radius: 5px;
       cursor: pointer;
     }
     button:hover {
       background-color: #0056b3;
     }
     a {
-      color: #007BFF;
+      color: #007bff;
       text-decoration: none;
     }
-    a:hover {
-      text-decoration: underline;
-    }
     p {
-      margin: 10px 0;
-    }
-    .error {
-      color: red;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="auth-box">
-    <h2>{{ title }}</h2>
-    <form method="POST">
-      <input name="username" placeholder="Username" required><br>
-      <input name="password" type="password" placeholder="Password" required><br>
-      <button type="submit">{{ title }}</button>
-    </form>
-    <p class="error">{{ message }}</p>
-    {% if title == "Login" %}
-      <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
-    {% else %}
-      <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
-    {% endif %}
-  </div>
+  <h2>{{ title }}</h2>
+  <form method="POST">
+    <input name="username" placeholder="Username" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button type="submit">{{ title }}</button>
+  </form>
+  <p>{{ message }}</p>
+  {% if title == "Login" %}
+    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+  {% else %}
+    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+  {% endif %}
 </body>
 </html>
 """
@@ -101,98 +85,118 @@ HTML_TEMPLATE = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MACC Chart Generator</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
       background-color: #f4f4f4;
-      padding: 40px;
+      margin: 0;
+      overflow-x: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
-    .container {
-      max-width: 1000px;
-      margin: auto;
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    }
-    h2 {
+    h2, h3 {
       text-align: center;
-      margin-bottom: 30px;
+      color: #333;
     }
     form {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      margin: auto;
+      max-width: 600px;
     }
-    input {
-      padding: 10px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
+    input, button {
+      padding: 0.75em;
+      margin: 0.5em 0;
+      font-size: 1em;
     }
     button {
-      width: fit-content;
-      padding: 10px 16px;
-      background-color: #007BFF;
+      background-color: #28a745;
       color: white;
-      font-size: 14px;
       border: none;
-      border-radius: 5px;
       cursor: pointer;
     }
     button:hover {
-      background-color: #0056b3;
+      background-color: #218838;
     }
     img {
       display: block;
+      margin: 2rem auto;
       max-width: 100%;
-      margin: 20px auto;
+      height: auto;
+      border: 1px solid #ccc;
     }
-    .footer {
+    a {
+      display: block;
       text-align: center;
-      margin-top: 20px;
-    }
-    .admin-link {
-      text-align: center;
-      margin-top: 10px;
-    }
-    .admin-link a {
-      color: #28a745;
+      margin-top: 1rem;
+      color: #007bff;
       text-decoration: none;
     }
-    .admin-link a:hover {
+    a:hover {
       text-decoration: underline;
+    }
+    .logout-button {
+      background-color: #dc3545;
+      padding: 10px 15px;
+      color: white;
+      border: none;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .logout-button:hover {
+      background-color: #c82333;
+    }
+    .admin-panel-link {
+      text-align: center;
+      position: relative;
+      bottom: 20px;
+      font-size: 16px;
+    }
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+      .logout-button {
+        font-size: 12px;
+        padding: 8px 12px;
+      }
+      .admin-panel-link {
+        font-size: 14px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>MACC Chart Generator</h2>
-    <form method="POST">
-      <input name="project_name" placeholder="Project Name" required>
-      <input name="categories" placeholder="Categories (comma-separated)" required>
-      <input name="values" placeholder="Values (comma-separated)" required>
-      <input name="widths" placeholder="Widths (comma-separated)" required>
-      <input name="line_value" placeholder="Optional Line Value (e.g. internal carbon price)">
-      <button type="submit">Generate Chart</button>
-    </form>
+  <h2>MACC Chart Generator</h2>
+  <form method="POST">
+    <input name="project_name" placeholder="Project Name" required>
+    <input name="categories" placeholder="Categories (comma-separated)" required>
+    <input name="values" placeholder="Values (comma-separated)" required>
+    <input name="widths" placeholder="Widths (comma-separated)" required>
+    <input name="line_value" placeholder="Optional Line Value">
+    <button type="submit">Generate Chart</button>
+  </form>
 
-    {% if chart %}
-      <h3 style="text-align:center;">Generated Chart:</h3>
-      <img src="data:image/png;base64,{{ chart }}" alt="MACC Chart">
-    {% endif %}
+  {% if chart %}
+    <h3>Generated Chart:</h3>
+    <img src="data:image/png;base64,{{ chart }}" alt="MACC Chart">
+  {% endif %}
 
-    <form method="POST" action="{{ url_for('logout') }}" class="footer">
-      <button type="submit">Logout</button>
-    </form>
+  <form method="POST" action="{{ url_for('logout') }}">
+    <button type="submit" class="logout-button">Logout</button>
+  </form>
 
-    {% if session['user'] == 'admin' %}
-      <div class="admin-link">
-        <p><a href="{{ url_for('admin') }}">Go to Admin Panel</a></p>
-      </div>
-    {% endif %}
-  </div>
+  {% if session['user'] == 'admin' %}
+    <a href="{{ url_for('admin') }}" class="admin-panel-link">Go to Admin Panel</a>
+  {% endif %}
 </body>
 </html>
 """
@@ -290,7 +294,6 @@ def index():
             buf.close()
             plt.close()
 
-            # Decrease quota
             if quota is not None:
                 users[user]["quota"] -= 1
 
@@ -317,87 +320,18 @@ def admin():
         except ValueError:
             message = "Invalid quota input."
 
-    return render_template_string("""
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Panel</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #eef2f5;
-      padding: 40px;
-    }
-    .container {
-      max-width: 800px;
-      margin: auto;
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    }
-    h2, h3 {
-      text-align: center;
-      color: #333;
-    }
-    form {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-    input {
-      padding: 10px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    button {
-      background-color: #28a745;
-      color: white;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #218838;
-    }
-    p {
-      text-align: center;
-      color: #d63333;
-    }
-    ul {
-      list-style-type: none;
-      padding: 0;
-      text-align: center;
-    }
-    li {
-      padding: 6px 0;
-      font-size: 16px;
-    }
-  </style>
-</head>
+    return render_template_string("""<html>
+<head><title>Admin Panel</title></head>
 <body>
-  <div class="container">
-    <h2>Admin Panel</h2>
-    <form method="POST">
-        <input name="username" placeholder="Username" required>
-        <input name="quota" type="number" placeholder="New quota" required>
-        <button type="submit">Update Quota</button>
-    </form>
-    <p>{{ message }}</p>
-    <h3>Current User Quotas:</h3>
-    <ul>
-    {% for username, data in users.items() %}
-        <li><strong>{{ username }}</strong>: {{ data.quota if data.quota is not none else "Unlimited" }}</li>
-    {% endfor %}
-    </ul>
-  </div>
+  <h2>Admin Panel</h2>
+  <form method="POST">
+    <input name="username" placeholder="Username" required>
+    <input name="quota" type="number" placeholder="New quota" required>
+    <button type="submit">Update Quota</button>
+  </form>
+  <p>{{ message }}</p>
 </body>
-</html>
-""", users=users, message=message)
+</html>""", users=users, message=message)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
