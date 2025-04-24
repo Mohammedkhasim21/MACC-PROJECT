@@ -14,7 +14,7 @@ app.secret_key = "your_secret_key"  # Change this in production
 
 # In-memory user storage
 users = {
-    "admin": {"password": "password123", "quota": None}
+    "admin": {"password": "password123", "quota": None, "approved": True}
 }
 
 # Templates
@@ -223,7 +223,10 @@ def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
-        if username in users and users[username]["password"] == password:
+        user = users.get(username)
+        if user and user["password"] == password:
+            if not user.get("approved", False):
+                return render_template_string(AUTH_TEMPLATE, title="Login", message="Awaiting admin approval.")
             session["user"] = username
             return redirect(url_for("index"))
         return render_template_string(AUTH_TEMPLATE, title="Login", message="Invalid credentials.")
@@ -236,8 +239,8 @@ def register():
         password = request.form["password"]
         if username in users:
             return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
-        users[username] = {"password": password, "quota": 5}
-        return redirect(url_for("login"))
+        users[username] = {"password": password, "quota": 5, "approved": False}
+        return render_template_string(AUTH_TEMPLATE, title="Login", message="Registered. Awaiting admin approval.")
     return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
 @app.route("/logout", methods=["POST"])
@@ -252,8 +255,10 @@ def index():
 
     user = session["user"]
     user_data = users.get(user)
-    quota = user_data.get("quota")
+    if not user_data.get("approved", False):
+        return "<h2>Access Denied.</h2><p>Your account is not yet approved by the admin.</p>"
 
+    quota = user_data.get("quota")
     if quota == 0:
         return "<h2>Usage limit reached.</h2><p>Please contact admin for more use.</p>"
 
@@ -325,15 +330,22 @@ def admin():
     message = ""
     if request.method == "POST":
         target_user = request.form["username"]
-        try:
-            new_quota = int(request.form["quota"])
+        if "approve" in request.form:
             if target_user in users:
-                users[target_user]["quota"] = new_quota
-                message = f"Quota updated for {target_user}"
+                users[target_user]["approved"] = True
+                message = f"{target_user} approved."
             else:
                 message = "User not found."
-        except ValueError:
-            message = "Invalid quota input."
+        else:
+            try:
+                new_quota = int(request.form["quota"])
+                if target_user in users:
+                    users[target_user]["quota"] = new_quota
+                    message = f"Quota updated for {target_user}"
+                else:
+                    message = "User not found."
+            except ValueError:
+                message = "Invalid quota input."
 
     return render_template_string("""
 <!doctype html>
@@ -343,77 +355,18 @@ def admin():
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Panel</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      padding: 2rem;
-      margin: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    h2 {
-      text-align: center;
-      color: #333;
-    }
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    input, button {
-      padding: 0.75em;
-      font-size: 1em;
-    }
-    button {
-      background-color: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    p.message {
-      text-align: center;
-      color: green;
-      font-weight: bold;
-    }
-    h3 {
-      margin-top: 2rem;
-      color: #555;
-    }
-    ul {
-      list-style-type: none;
-      padding: 0;
-    }
-    li {
-      background: #f1f1f1;
-      margin: 0.3rem 0;
-      padding: 0.5rem;
-      border-radius: 5px;
-    }
-    a {
-      display: block;
-      text-align: center;
-      margin-top: 2rem;
-      color: #007bff;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    @media (max-width: 600px) {
-      .container {
-        padding: 1rem;
-      }
-    }
+    body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 2rem; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    h2, h3 { text-align: center; }
+    form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
+    input, button { padding: 0.75em; font-size: 1em; }
+    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    .message { text-align: center; color: green; font-weight: bold; }
+    ul { list-style-type: none; padding: 0; }
+    li { background: #f1f1f1; margin: 0.3rem 0; padding: 0.5rem; border-radius: 5px; }
+    a { display: block; text-align: center; margin-top: 2rem; color: #007bff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -421,14 +374,19 @@ def admin():
     <h2>Admin Panel</h2>
     <form method="POST">
       <input name="username" placeholder="Username" required>
-      <input name="quota" type="number" placeholder="New quota" required>
+      <input name="quota" type="number" placeholder="New quota (if updating)">
       <button type="submit">Update Quota</button>
+      <button type="submit" name="approve">Approve User</button>
     </form>
     <p class="message">{{ message }}</p>
-    <h3>Current User Quotas:</h3>
+    <h3>Current Users:</h3>
     <ul>
     {% for username, data in users.items() %}
-      <li><strong>{{ username }}</strong>: {{ data.quota if data.quota is not none else "Unlimited" }}</li>
+      <li>
+        <strong>{{ username }}</strong> -
+        Quota: {{ data.quota if data.quota is not none else "Unlimited" }} -
+        Approved: {{ "Yes" if data.get("approved") else "No" }}
+      </li>
     {% endfor %}
     </ul>
     <a href="{{ url_for('index') }}">← Back to Main App</a>
