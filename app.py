@@ -239,7 +239,7 @@ def register():
         password = request.form["password"]
         if username in users:
             return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
-        users[username] = {"password": password, "quota": 5, "approved": False}
+        users[username] = {"password": password, "quota": 3, "approved": False}
         return render_template_string(AUTH_TEMPLATE, title="Login", message="Registered. Awaiting admin approval.")
     return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
@@ -260,7 +260,81 @@ def index():
 
     quota = user_data.get("quota")
     if quota == 0:
-        return "<h2>Usage limit reached.</h2><p>Please contact admin for more use.</p>"
+        return render_template_string("""
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Limit Reached</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    h2 {
+      color: #dc3545;
+      margin-bottom: 1rem;
+    }
+    p {
+      color: #555;
+      margin-bottom: 2rem;
+    }
+    a.button {
+      display: inline-block;
+      background-color: #007bff;
+      color: white;
+      padding: 0.75em 1.5em;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 1rem;
+    }
+    a.button:hover {
+      background-color: #0056b3;
+    }
+    .logout-button {
+  background-color: #dc3545;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.logout-button:hover {
+  background-color: #c82333;
+}
+
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Usage Limit Reached</h2>
+    <p>Your chart generation limit has been reached.</p>
+    <p>Please contact the admin to request additional access.</p>
+    <form method="POST" action="{{ url_for('logout') }}">
+    <button type="submit" class="logout-button">Logout</button>
+  </form>
+  </div>
+</body>
+</html>
+""")
+
 
     chart = None
 
@@ -284,7 +358,7 @@ def index():
             plt.bar(x_positions, values, width=widths, color=colors, edgecolor='black', align='edge')
 
             for x, y, w in zip(x_positions, values, widths):
-                plt.text(x + w / 2, y + 1, str(y), ha='center', fontsize=20)
+                plt.text(x + w / 2, y + 1, str(y), ha='center',rotation=90, fontsize=20)
 
             plt.xticks(x_positions + np.array(widths) / 2, categories, ha="center", rotation=90, fontsize=20)
             plt.title(f"Marginal Abatement Cost Curve (MACC) - {project_name}", fontsize=24)
@@ -359,7 +433,15 @@ def admin():
     .container { max-width: 600px; margin: auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     h2, h3 { text-align: center; }
     form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
-    input, button { padding: 0.75em; font-size: 1em; }
+   input {
+  padding: 0.75em;
+  margin: 0.5em 0;
+  font-size: 1em;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
     button { background-color: #007bff; color: white; border: none; cursor: pointer; }
     button:hover { background-color: #0056b3; }
     .message { text-align: center; color: green; font-weight: bold; }
