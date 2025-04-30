@@ -1,0 +1,17 @@
+{
+    "admin@example.com": {
+        "password": "password123",
+        "quota": null,
+        "approved": true
+    },
+    "riyaz@gmail.com": {
+        "password": "12345",
+        "quota": 0,
+        "approved": true
+    },
+    "fk@gmail.com": {
+        "password": "12345",
+        "quota": 3,
+        "approved": false
+    }
+}
