@@ -2,23 +2,46 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 
 from flask import Flask, request, render_template_string, redirect, url_for, session
-import matplotlib.pyplot as plt  # type: ignore
+import matplotlib.pyplot as plt
 import numpy as np
 import io
 import base64
 import os
 import random
+import json
+import re
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Change this in production
 
-# In-memory user storage
-users = {
-    "admin": {"password": "password123", "quota": None, "approved": True}
-}
+# Path to store user credentials
+USERS_FILE = "users.json"
+
+# Regular expression for email validation
+EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+# Load users from JSON file or initialize with default admin
+def load_users():
+    try:
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Initialize with default admin user
+        default_users = {
+            "admin@example.com": {"password": "password123", "quota": None, "approved": True}
+        }
+        save_users(default_users)
+        return default_users
+
+# Save users to JSON file
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=4)
+
+# Initialize users
+users = load_users()
 
 # Templates
-
 AUTH_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -68,7 +91,7 @@ AUTH_TEMPLATE = """
 <body>
   <h2>{{ title }}</h2>
   <form method="POST">
-    <input name="username" placeholder="Username" required>
+    <input name="username" type="email" placeholder="Email" required>
     <input name="password" type="password" placeholder="Password" required>
     <button type="submit">{{ title }}</button>
   </form>
@@ -207,7 +230,7 @@ HTML_TEMPLATE = """
     <button type="submit" class="logout-button">Logout</button>
   </form>
 
-  {% if session['user'] == 'admin' %}
+  {% if session['user'] == 'admin@example.com' %}
     <div class="admin-link">
       <p><a href="{{ url_for('admin') }}">Go to Admin Panel</a></p>
     </div>
@@ -217,13 +240,14 @@ HTML_TEMPLATE = """
 """
 
 # Routes
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
         user = users.get(username)
+        if not re.match(EMAIL_REGEX, username):
+            return render_template_string(AUTH_TEMPLATE, title="Login", message="Username must be a valid email address.")
         if user and user["password"] == password:
             if not user.get("approved", False):
                 return render_template_string(AUTH_TEMPLATE, title="Login", message="Awaiting admin approval.")
@@ -237,9 +261,12 @@ def register():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
+        if not re.match(EMAIL_REGEX, username):
+            return render_template_string(AUTH_TEMPLATE, title="Register", message="Username must be a valid email address.")
         if username in users:
             return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
         users[username] = {"password": password, "quota": 3, "approved": False}
+        save_users(users)
         return render_template_string(AUTH_TEMPLATE, title="Login", message="Registered. Awaiting admin approval.")
     return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
@@ -308,18 +335,17 @@ def index():
       background-color: #0056b3;
     }
     .logout-button {
-  background-color: #dc3545;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-}
-.logout-button:hover {
-  background-color: #c82333;
-}
-
+      background-color: #dc3545;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .logout-button:hover {
+      background-color: #c82333;
+    }
   </style>
 </head>
 <body>
@@ -328,16 +354,14 @@ def index():
     <p>Your chart generation limit has been reached.</p>
     <p>Please contact the admin to request additional access.</p>
     <form method="POST" action="{{ url_for('logout') }}">
-    <button type="submit" class="logout-button">Logout</button>
-  </form>
+      <button type="submit" class="logout-button">Logout</button>
+    </form>
   </div>
 </body>
 </html>
 """)
 
-
     chart = None
-
     if request.method == "POST":
         try:
             project_name = request.form["project_name"]
@@ -358,7 +382,7 @@ def index():
             plt.bar(x_positions, values, width=widths, color=colors, edgecolor='black', align='edge')
 
             for x, y, w in zip(x_positions, values, widths):
-                plt.text(x + w / 2, y + 1, str(y), ha='center',rotation=90, fontsize=20)
+                plt.text(x + w / 2, y + 1, str(y), ha='center', rotation=90, fontsize=20)
 
             plt.xticks(x_positions + np.array(widths) / 2, categories, ha="center", rotation=90, fontsize=20)
             plt.title(f"Marginal Abatement Cost Curve (MACC) - {project_name}", fontsize=24)
@@ -390,6 +414,7 @@ def index():
 
             if quota is not None:
                 users[user]["quota"] -= 1
+                save_users(users)
 
         except Exception as e:
             return f"Error processing your input: {e}"
@@ -398,15 +423,18 @@ def index():
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
-    if session.get("user") != "admin":
+    if session.get("user") != "admin@example.com":
         return redirect(url_for("login"))
 
     message = ""
     if request.method == "POST":
         target_user = request.form["username"]
-        if "approve" in request.form:
+        if not re.match(EMAIL_REGEX, target_user):
+            message = "Username must be a valid email address."
+        elif "approve" in request.form:
             if target_user in users:
                 users[target_user]["approved"] = True
+                save_users(users)
                 message = f"{target_user} approved."
             else:
                 message = "User not found."
@@ -415,6 +443,7 @@ def admin():
                 new_quota = int(request.form["quota"])
                 if target_user in users:
                     users[target_user]["quota"] = new_quota
+                    save_users(users)
                     message = f"Quota updated for {target_user}"
                 else:
                     message = "User not found."
@@ -433,15 +462,13 @@ def admin():
     .container { max-width: 600px; margin: auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     h2, h3 { text-align: center; }
     form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
-   input {
-  padding: 0.75em;
-  margin: 0.5em 0;
-  font-size: 1em;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-
+    input {
+      padding: 0.75em;
+      margin: 0.5em 0;
+      font-size: 1em;
+      width: 100%;
+      box-sizing: border-box;
+    }
     button { background-color: #007bff; color: white; border: none; cursor: pointer; }
     button:hover { background-color: #0056b3; }
     .message { text-align: center; color: green; font-weight: bold; }
@@ -455,7 +482,7 @@ def admin():
   <div class="container">
     <h2>Admin Panel</h2>
     <form method="POST">
-      <input name="username" placeholder="Username" required>
+      <input name="username" type="email" placeholder="User Email" required>
       <input name="quota" type="number" placeholder="New quota (if updating)">
       <button type="submit">Update Quota</button>
       <button type="submit" name="approve">Approve User</button>
