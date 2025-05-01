@@ -1,47 +1,69 @@
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
+matplotlib.use('Agg')
 
 from flask import Flask, request, render_template_string, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
 import matplotlib.pyplot as plt
 import numpy as np
 import io
 import base64
-import os
 import random
-import json
 import re
+from datetime import datetime
+import sqlite3
+from sqlalchemy import inspect
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Change this in production
 
-# Path to store user credentials
-USERS_FILE = "users.json"
+# Configure SQLite database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 # Regular expression for email validation
 EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
-# Load users from JSON file or initialize with default admin
-def load_users():
-    try:
-        with open(USERS_FILE, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        # Initialize with default admin user
-        default_users = {
-            "admin@example.com": {"password": "password123", "quota": None, "approved": True}
-        }
-        save_users(default_users)
-        return default_users
+# Database model for User
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    quota = db.Column(db.Integer, nullable=True)
+    approved = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Save users to JSON file
-def save_users(users):
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=4)
+    def __repr__(self):
+        return f'<User {self.email}>'
 
-# Initialize users
-users = load_users()
+# Check and update database schema
+def update_database_schema():
+    inspector = inspect(db.engine)
+    if not inspector.has_table('user'):
+        db.create_all()
+    else:
+        columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'created_at' not in columns:
+            with sqlite3.connect('users.db') as conn:
+                conn.execute('ALTER TABLE user ADD COLUMN created_at DATETIME')
+                conn.commit()
 
-# Templates
+# Create database tables and update schema
+with app.app_context():
+    update_database_schema()
+    # Create default admin user if not exists
+    if not User.query.filter_by(email='admin@example.com').first():
+        admin = User(
+            email='admin@example.com',
+            password='password123',
+            quota=None,
+            approved=True,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(admin)
+        db.session.commit()
+
+# Templates (same as original)
 AUTH_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -245,11 +267,12 @@ def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
-        user = users.get(username)
         if not re.match(EMAIL_REGEX, username):
             return render_template_string(AUTH_TEMPLATE, title="Login", message="Username must be a valid email address.")
-        if user and user["password"] == password:
-            if not user.get("approved", False):
+        
+        user = User.query.filter_by(email=username).first()
+        if user and user.password == password:
+            if not user.approved:
                 return render_template_string(AUTH_TEMPLATE, title="Login", message="Awaiting admin approval.")
             session["user"] = username
             return redirect(url_for("index"))
@@ -263,10 +286,13 @@ def register():
         password = request.form["password"]
         if not re.match(EMAIL_REGEX, username):
             return render_template_string(AUTH_TEMPLATE, title="Register", message="Username must be a valid email address.")
-        if username in users:
+        
+        if User.query.filter_by(email=username).first():
             return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
-        users[username] = {"password": password, "quota": 3, "approved": False}
-        save_users(users)
+        
+        new_user = User(email=username, password=password, quota=3, approved=False)
+        db.session.add(new_user)
+        db.session.commit()
         return render_template_string(AUTH_TEMPLATE, title="Login", message="Registered. Awaiting admin approval.")
     return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
@@ -280,13 +306,11 @@ def index():
     if "user" not in session:
         return redirect(url_for("login"))
 
-    user = session["user"]
-    user_data = users.get(user)
-    if not user_data.get("approved", False):
+    user = User.query.filter_by(email=session["user"]).first()
+    if not user.approved:
         return "<h2>Access Denied.</h2><p>Your account is not yet approved by the admin.</p>"
 
-    quota = user_data.get("quota")
-    if quota == 0:
+    if user.quota == 0:
         return render_template_string("""
 <!doctype html>
 <html lang="en">
@@ -412,9 +436,9 @@ def index():
             buf.close()
             plt.close()
 
-            if quota is not None:
-                users[user]["quota"] -= 1
-                save_users(users)
+            if user.quota is not None:
+                user.quota -= 1
+                db.session.commit()
 
         except Exception as e:
             return f"Error processing your input: {e}"
@@ -428,28 +452,31 @@ def admin():
 
     message = ""
     if request.method == "POST":
-        target_user = request.form["username"]
-        if not re.match(EMAIL_REGEX, target_user):
+        target_user_email = request.form["username"]
+        if not re.match(EMAIL_REGEX, target_user_email):
             message = "Username must be a valid email address."
         elif "approve" in request.form:
-            if target_user in users:
-                users[target_user]["approved"] = True
-                save_users(users)
-                message = f"{target_user} approved."
+            target_user = User.query.filter_by(email=target_user_email).first()
+            if target_user:
+                target_user.approved = True
+                db.session.commit()
+                message = f"{target_user_email} approved."
             else:
                 message = "User not found."
         else:
             try:
                 new_quota = int(request.form["quota"])
-                if target_user in users:
-                    users[target_user]["quota"] = new_quota
-                    save_users(users)
-                    message = f"Quota updated for {target_user}"
+                target_user = User.query.filter_by(email=target_user_email).first()
+                if target_user:
+                    target_user.quota = new_quota
+                    db.session.commit()
+                    message = f"Quota updated for {target_user_email}"
                 else:
                     message = "User not found."
             except ValueError:
                 message = "Invalid quota input."
 
+    users = User.query.all()
     return render_template_string("""
 <!doctype html>
 <html lang="en">
@@ -490,11 +517,11 @@ def admin():
     <p class="message">{{ message }}</p>
     <h3>Current Users:</h3>
     <ul>
-    {% for username, data in users.items() %}
+    {% for user in users %}
       <li>
-        <strong>{{ username }}</strong> -
-        Quota: {{ data.quota if data.quota is not none else "Unlimited" }} -
-        Approved: {{ "Yes" if data.get("approved") else "No" }}
+        <strong>{{ user.email }}</strong> -
+        Quota: {{ user.quota if user.quota is not none else "Unlimited" }} -
+        Approved: {{ "Yes" if user.approved else "No" }}
       </li>
     {% endfor %}
     </ul>
@@ -504,7 +531,7 @@ def admin():
 </html>
 """, users=users, message=message)
 
-# Run the app
 if __name__ == "__main__":
+    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
