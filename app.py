@@ -310,7 +310,7 @@ def index():
     if not user.approved:
         return "<h2>Access Denied.</h2><p>Your account is not yet approved by the admin.</p>"
 
-    if user.quota == 0:
+    if user.quota is not None and user.quota <= 0:
         return render_template_string("""
 <!doctype html>
 <html lang="en">
@@ -436,8 +436,9 @@ def index():
             buf.close()
             plt.close()
 
-            if user.quota is not None:
-                user.quota -= 1
+            # Decrement quota for non-admin users with a valid quota
+            if user.quota is not None and user.email != 'admin@example.com':
+                user.quota = max(0, user.quota - 1)  # Ensure quota doesn't go negative
                 db.session.commit()
 
         except Exception as e:
@@ -470,7 +471,7 @@ def admin():
                 if target_user:
                     target_user.quota = new_quota
                     db.session.commit()
-                    message = f"Quota updated for {target_user_email}"
+                    message = f"Quota updated for {  target_user_email}"
                 else:
                     message = "User not found."
             except ValueError:
