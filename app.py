@@ -411,7 +411,7 @@ def index():
             plt.xticks(x_positions + np.array(widths) / 2, categories, ha="center", rotation=90, fontsize=20)
             plt.title(f"Marginal Abatement Cost Curve (MACC) - {project_name}", fontsize=24)
             plt.xlabel("CO2 Abatement, Million Tonne", fontsize=20)
-            plt.ylabel("Internal Carbon Pricing USD/Ton CO2", fontsize=20)
+            plt.ylabel("MACC Values USD/Ton CO2", fontsize=20)
 
             for x, width in zip(x_positions, widths):
                 plt.text(x + width / 2, -1.5, f"{int(width)}", ha="center", fontsize=20)
