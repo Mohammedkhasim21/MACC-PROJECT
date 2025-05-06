@@ -154,14 +154,19 @@ HTML_TEMPLATE = """
       display: flex;
       flex-direction: column;
       margin: auto;
-      max-width: 600px;
+      max-width: 700px;
     }
-    input, button {
+    input {
       padding: 0.75em;
       margin: 0.5em 0;
       font-size: 1em;
+      width: 500px;
+      box-sizing: border-box;
     }
     button {
+      padding: 0.75em;
+      margin: 0.5em 0;
+      font-size: 1em;
       background-color: #28a745;
       color: white;
       border: none;
@@ -178,9 +183,6 @@ HTML_TEMPLATE = """
       border: 1px solid #ccc;
     }
     a {
-      display: block;
-      text-align: center;
-      margin-top: 1rem;
       color: #007bff;
       text-decoration: none;
     }
@@ -201,20 +203,25 @@ HTML_TEMPLATE = """
     .logout-button:hover {
       background-color: #c82333;
     }
-     .admin-link a {
-      color: #28a745;
+    .admin-link {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .admin-link a {
+      display: inline-block;
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 16px;
       text-decoration: none;
+      transition: background-color 0.3s ease;
     }
     .admin-link a:hover {
-      text-decoration: underline;
+      background-color: #0056b3;
+      text-decoration: none;
     }
-    .admin-panel-link {
-      text-align: center;
-      position: relative;
-      bottom: 20px;
-      font-size: 16px;
-    }
-     .footer, .admin-link {
+    .footer {
       text-align: center;
       margin-top: 20px;
     }
@@ -226,8 +233,12 @@ HTML_TEMPLATE = """
         font-size: 12px;
         padding: 8px 12px;
       }
-      .admin-panel-link {
+      .admin-link a {
         font-size: 14px;
+        padding: 8px 16px;
+      }
+      input {
+        width: 100%;
       }
     }
   </style>
@@ -254,7 +265,7 @@ HTML_TEMPLATE = """
 
   {% if session['user'] == 'admin@example.com' %}
     <div class="admin-link">
-      <p><a href="{{ url_for('admin') }}">Go to Admin Panel</a></p>
+      <a href="{{ url_for('admin') }}">Go to Admin Panel</a>
     </div>
   {% endif %}
 </body>
@@ -497,7 +508,19 @@ def admin():
       width: 100%;
       box-sizing: border-box;
     }
-    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      padding: 0.5em 1.5em;
+      width: 150px; /* Reduced width */
+    }
     button:hover { background-color: #0056b3; }
     .message { text-align: center; color: green; font-weight: bold; }
     ul { list-style-type: none; padding: 0; }
@@ -512,8 +535,10 @@ def admin():
     <form method="POST">
       <input name="username" type="email" placeholder="User Email" required>
       <input name="quota" type="number" placeholder="New quota (if updating)">
-      <button type="submit">Update Quota</button>
-      <button type="submit" name="approve">Approve User</button>
+      <div class="button-container">
+        <button type="submit">Update Quota</button>
+        <button type="submit" name="approve">Approve User</button>
+      </div>
     </form>
     <p class="message">{{ message }}</p>
     <h3>Current Users:</h3>
