@@ -12,32 +12,68 @@ import re
 from datetime import datetime
 import sqlite3
 from sqlalchemy import inspect
-import uuid
+import secrets
+import os
+import logging
+import bcrypt
+import pytz
+
+# Helper function to get current IST time
+def get_ist_time():
+    ist = pytz.timezone('Asia/Kolkata')
+    return datetime.now(ist)
+
+# Custom logging formatter for IST timestamps
+class ISTFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        ist = pytz.timezone('Asia/Kolkata')
+        dt = datetime.fromtimestamp(record.created, ist)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+# Configure logging with IST timestamps
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+formatter = ISTFormatter('%(asctime)s - %(levelname)s - %(message)s')
+for handler in logging.getLogger().handlers:
+    handler.setFormatter(formatter)
 
 app = Flask(__name__)
-app.secret_key = str(uuid.uuid4())  # Secure random secret key
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_urlsafe(32))
 
-# Configure SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# Regular expression for email validation
 EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
-# Database model for User
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
     quota = db.Column(db.Integer, nullable=True)
     approved = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_ist_time)
+    last_login = db.Column(db.DateTime, nullable=True)
+    remember_token = db.Column(db.String(100), unique=True, nullable=True)
+
+    def set_password(self, password):
+        self.password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    def check_password(self, password):
+        try:
+            return bcrypt.checkpw(password.encode('utf-8'), self.password.encode('utf-8'))
+        except Exception as e:
+            logging.error(f"Password check failed for {self.email}: {e}")
+            return False
 
     def __repr__(self):
         return f'<User {self.email}>'
 
-# Check and update database schema
 def update_database_schema():
     inspector = inspect(db.engine)
     if not inspector.has_table('user'):
@@ -48,23 +84,28 @@ def update_database_schema():
             with sqlite3.connect('users.db') as conn:
                 conn.execute('ALTER TABLE user ADD COLUMN created_at DATETIME')
                 conn.commit()
+        if 'remember_token' not in columns:
+            with sqlite3.connect('users.db') as conn:
+                conn.execute('ALTER TABLE user ADD COLUMN remember_token VARCHAR(100)')
+                conn.commit()
+        if 'last_login' not in columns:
+            with sqlite3.connect('users.db') as conn:
+                conn.execute('ALTER TABLE user ADD COLUMN last_login DATETIME')
+                conn.commit()
 
-# Create database tables and update schema
 with app.app_context():
     update_database_schema()
-    # Create default admin user if not exists
     if not User.query.filter_by(email='admin@example.com').first():
         admin = User(
             email='admin@example.com',
-            password='password123',
             quota=None,
             approved=True,
-            created_at=datetime.utcnow()
+            created_at=get_ist_time()
         )
+        admin.set_password('password123')
         db.session.add(admin)
         db.session.commit()
 
-# Authentication Template (Login and Register)
 AUTH_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -103,14 +144,11 @@ AUTH_TEMPLATE = """
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col">
-  <!-- Header -->
   <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-center">Welcome to MACC Chart Generator</h1>
     </div>
   </header>
-
-  <!-- Main Content -->
   <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in max-w-md mx-auto">
       <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 text-center mb-8">{{ title }}</h2>
@@ -124,6 +162,11 @@ AUTH_TEMPLATE = """
           <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
           <input type="password" name="password" id="password" placeholder="Enter your password" required
                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+        </div>
+        <div>
+          <label for="remember" class="flex items-center text-sm font-medium text-gray-700">
+            <input type="checkbox" name="remember" id="remember" class="mr-2" checked> Remember Me
+          </label>
         </div>
         <div class="text-center">
           <button type="submit" class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale">
@@ -141,8 +184,6 @@ AUTH_TEMPLATE = """
       </p>
     </div>
   </main>
-
-  <!-- Footer -->
   <footer class="bg-gray-800 text-white py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <p class="text-sm">© 2025 MACC Chart Generator. All rights reserved.</p>
@@ -152,7 +193,6 @@ AUTH_TEMPLATE = """
 </html>
 """
 
-# Main App Template (Chart Generation Page)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -188,10 +228,25 @@ HTML_TEMPLATE = """
     ::-webkit-scrollbar-thumb:hover {
       background: #374151;
     }
+    
+    .username-display {
+    background: linear-gradient(45deg, #4b5563, #1f2937);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: inline-block;
+    position: absolute;
+    top: 13px;
+    right: -480px;
+    transform: translateY(1rem);
+}
+
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col">
-  <!-- Header -->
   <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
       <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">MACC Chart Generator</h1>
@@ -202,14 +257,15 @@ HTML_TEMPLATE = """
       </form>
     </div>
   </header>
-
-  <!-- Main Content -->
-  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in">
+  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
+    <div class="username-display">
+      UserId:-{{session['user'] }}
+    </div>
+    <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in mt-12">
       <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 text-center mb-8">Generate Your MACC Chart</h2>
       <form method="POST" class="space-y-6 max-w-3xl mx-auto">
         <div>
-          <label for="project_name" class="block text-sm font-medium text_gray-700">Organisation Name</label>
+          <label for="project_name" class="block text-sm font-medium text-gray-700">Organisation Name</label>
           <input type="text" name="project_name" id="project_name" placeholder="Enter Organisation Name" required
                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
         </div>
@@ -239,7 +295,6 @@ HTML_TEMPLATE = """
           </button>
         </div>
       </form>
-
       {% if chart %}
         <div class="mt-12">
           <h3 class="text-xl font-semibold text-gray-800 text-center mb-6">Generated Chart</h3>
@@ -248,7 +303,6 @@ HTML_TEMPLATE = """
           </div>
         </div>
       {% endif %}
-
       {% if session['user'] == 'admin@example.com' %}
         <div class="mt-8 text-center">
           <a href="{{ url_for('admin') }}" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 hover-scale">
@@ -258,8 +312,6 @@ HTML_TEMPLATE = """
       {% endif %}
     </div>
   </main>
-
-  <!-- Footer -->
   <footer class="bg-gray-800 text-white py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <p class="text-sm">© 2025 MACC Chart Generator. All rights reserved.</p>
@@ -269,7 +321,6 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# Admin Panel Template
 ADMIN_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -308,7 +359,6 @@ ADMIN_TEMPLATE = """
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col">
-  <!-- Header -->
   <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
       <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">MACC Chart Generator</h1>
@@ -319,8 +369,6 @@ ADMIN_TEMPLATE = """
       </form>
     </div>
   </header>
-
-  <!-- Main Content -->
   <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in max-w-2xl mx-auto">
       <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 text-center mb-8">Admin Panel</h2>
@@ -342,6 +390,9 @@ ADMIN_TEMPLATE = """
           <button type="submit" name="approve" class="inline-flex items-center px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 hover-scale">
             Approve User
           </button>
+          <button type="submit" name="reset_password" class="inline-flex items-center px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition duration-300 hover-scale">
+            Reset Password
+          </button>
         </div>
       </form>
       <p class="text-center text-green-600 mt-4 font-semibold">{{ message }}</p>
@@ -362,8 +413,6 @@ ADMIN_TEMPLATE = """
       </div>
     </div>
   </main>
-
-  <!-- Footer -->
   <footer class="bg-gray-800 text-white py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <p class="text-sm">© 2025 MACC Chart Generator. All rights reserved.</p>
@@ -373,21 +422,69 @@ ADMIN_TEMPLATE = """
 </html>
 """
 
-# Routes
+@app.before_request
+def auto_login():
+    if 'user' not in session and 'remember_token' in request.cookies:
+        token = request.cookies.get('remember_token')
+        logging.debug(f"Checking remember_token: {token}")
+        user = User.query.filter_by(remember_token=token).first()
+        if user:
+            if user.approved:
+                session['user'] = user.email
+                user.last_login = get_ist_time()
+                try:
+                    db.session.commit()
+                    logging.info(f"Auto-login successful for {user.email} at {user.last_login.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                except Exception as e:
+                    logging.error(f"Failed to update last_login for {user.email}: {e}")
+                    db.session.rollback()
+            else:
+                logging.warning(f"Auto-login failed for {user.email}: not approved")
+        else:
+            logging.warning(f"Auto-login failed: invalid remember_token {token}")
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
+        remember = 'remember' in request.form
+        logging.debug(f"Login attempt for {username}, remember={remember}")
         if not re.match(EMAIL_REGEX, username):
+            logging.error(f"Invalid email format: {username}")
             return render_template_string(AUTH_TEMPLATE, title="Login", message="Username must be a valid email address.")
         
         user = User.query.filter_by(email=username).first()
-        if user and user.password == password:
+        if user and user.check_password(password):
             if not user.approved:
+                logging.warning(f"Login failed for {username}: awaiting approval")
                 return render_template_string(AUTH_TEMPLATE, title="Login", message="Awaiting admin approval.")
             session["user"] = username
+            user.last_login = get_ist_time()
+            ist_time = user.last_login
+            try:
+                db.session.commit()
+                logging.info(f"User {username} logged in at {ist_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+            except Exception as e:
+                logging.error(f"Failed to update last_login for {username}: {e}")
+                db.session.rollback()
+                return render_template_string(AUTH_TEMPLATE, title="Login", message="Internal server error.")
+            if remember:
+                token = secrets.token_urlsafe(32)
+                user.remember_token = token
+                try:
+                    db.session.commit()
+                    logging.info(f"Remember token set for {username}: {token}")
+                except Exception as e:
+                    logging.error(f"Failed to save remember token for {username}: {e}")
+                    db.session.rollback()
+                    return render_template_string(AUTH_TEMPLATE, title="Login", message="Internal server error.")
+                response = redirect(url_for("index"))
+                response.set_cookie('remember_token', token, max_age=31536000, httponly=True, samesite='Lax')
+                logging.debug(f"Cookie set for {username} with max_age=31536000")
+                return response
             return redirect(url_for("index"))
+        logging.warning(f"Login failed for {username}: invalid credentials")
         return render_template_string(AUTH_TEMPLATE, title="Login", message="Invalid credentials.")
     return render_template_string(AUTH_TEMPLATE, title="Login", message="")
 
@@ -396,50 +493,80 @@ def register():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
+        logging.debug(f"Registration attempt for {username}")
         if not re.match(EMAIL_REGEX, username):
+            logging.error(f"Invalid email format for registration: {username}")
             return render_template_string(AUTH_TEMPLATE, title="Register", message="Username must be a valid email address.")
         
         if User.query.filter_by(email=username).first():
+            logging.warning(f"Registration failed: {username} already exists")
             return render_template_string(AUTH_TEMPLATE, title="Register", message="User already exists.")
         
-        new_user = User(email=username, password=password, quota=3, approved=False)
-        db.session.add(new_user)
-        db.session.commit()
-        return render_template_string(AUTH_TEMPLATE, title="Login", message="Registered. Awaiting admin approval.")
+        new_user = User(email=username, quota=3, approved=False)
+        new_user.set_password(password)
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            logging.info(f"User registered: {username}")
+            return render_template_string(AUTH_TEMPLATE, title="Login", message="Registered. Awaiting admin approval.")
+        except Exception as e:
+            logging.error(f"Registration failed for {username}: {e}")
+            db.session.rollback()
+            return render_template_string(AUTH_TEMPLATE, title="Register", message="Internal server error.")
     return render_template_string(AUTH_TEMPLATE, title="Register", message="")
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    if 'user' in session:
+        user = User.query.filter_by(email=session['user']).first()
+        if user:
+            user.remember_token = None
+            try:
+                db.session.commit()
+                logging.info(f"Remember token cleared for {user.email}")
+            except Exception as e:
+                logging.error(f"Failed to clear remember token for {user.email}: {e}")
+                db.session.rollback()
     session.pop("user", None)
-    return redirect(url_for("login"))
+    response = redirect(url_for("login"))
+    response.delete_cookie('remember_token')
+    logging.info("User logged out")
+    return response
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if "user" not in session:
+        logging.debug("No user in session, redirecting to login")
         return redirect(url_for("login"))
 
     user = User.query.filter_by(email=session["user"]).first()
+    if not user:
+        logging.error(f"Session user {session['user']} not found in database")
+        session.pop("user", None)
+        return redirect(url_for("login"))
     if not user.approved:
+        logging.warning(f"Access denied for {user.email}: not approved")
         return "<h2>Access Denied.</h2><p>Your account is not yet approved by the admin.</p>"
 
     if user.quota is not None and user.quota <= 0:
+        logging.info(f"Quota reached for {user.email}")
         return render_template_string("""
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Limit Reached</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: #f8f9fa;
       margin: 0;
-      padding: 2rem;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
+      overflow: hidden;
     }
     .card {
       background: white;
@@ -456,19 +583,7 @@ def index():
     }
     p {
       color: #555;
-      margin-bottom: 2rem;
-    }
-    a.button {
-      display: inline-block;
-      background-color: #007bff;
-      color: white;
-      padding: 0.75em 1.5em;
-      border-radius: 5px;
-      text-decoration: none;
-      font-size: 1rem;
-    }
-    a.button:hover {
-      background-color: #0056b3;
+      margin-bottom: 1.3rem;
     }
     .logout-button {
       background-color: #dc3545;
@@ -508,11 +623,12 @@ def index():
             line_value = float(line_value) if line_value else None
 
             if len(categories) != len(values) or len(categories) != len(widths):
+                logging.error(f"Input mismatch for {user.email}: categories={len(categories)}, values={len(values)}, widths={len(widths)}")
                 return "Error: Mismatched lengths of inputs."
 
             total_abatement = sum(widths)
             x_positions = np.cumsum([0] + widths[:-1])
-            colors = ["#" + ''.join(random.choices('0123456789ABCDEF', k=6)) for _ in categories]
+            colors = ["#" + ''.join(random.choices('0123456786789ABCDEF', k=6)) for _ in categories]
 
             plt.figure(figsize=(20, 25))
             plt.bar(x_positions, values, width=widths, color=colors, edgecolor='black', align='edge')
@@ -538,7 +654,7 @@ def index():
 
             last_x = x_positions[-1]
             last_width = widths[-1]
-            plt.text(last_x + last_width / 2, -6, f"Total: {total_abatement:.1f}",
+            plt.text(last_x + last_width / 2, -10, f"Total: {total_abatement:.1f}",
                      ha='center', fontsize=20, color="black")
 
             buf = io.BytesIO()
@@ -548,51 +664,92 @@ def index():
             buf.close()
             plt.close()
 
-            # Decrement quota for non-admin users with a valid quota
             if user.quota is not None and user.email != 'admin@example.com':
                 user.quota = max(0, user.quota - 1)
-                db.session.commit()
+                try:
+                    db.session.commit()
+                    logging.info(f"Quota decremented for {user.email}: new quota={user.quota}")
+                except Exception as e:
+                    logging.error(f"Failed to decrement quota for {user.email}: {e}")
+                    db.session.rollback()
 
         except Exception as e:
+            logging.error(f"Chart generation failed for {user.email}: {e}")
             return f"Error processing your input: {e}"
 
-    return render_template_string(HTML_TEMPLATE, chart=chart)
+    logging.debug(f"Rendering index page for {user.email}")
+    return render_template_string(HTML_TEMPLATE, chart=chart, last_login=user.last_login)
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if session.get("user") != "admin@example.com":
+        logging.debug("Admin access attempt by non-admin, redirecting to login")
         return redirect(url_for("login"))
 
     message = ""
     if request.method == "POST":
         target_user_email = request.form["username"]
+        logging.debug(f"Admin action for {target_user_email}")
         if not re.match(EMAIL_REGEX, target_user_email):
             message = "Username must be a valid email address."
+            logging.error(f"Invalid email format in admin panel: {target_user_email}")
         elif "approve" in request.form:
             target_user = User.query.filter_by(email=target_user_email).first()
             if target_user:
                 target_user.approved = True
-                db.session.commit()
-                message = f"{target_user_email} approved."
+                try:
+                    db.session.commit()
+                    message = f"{target_user_email} approved."
+                    logging.info(f"User {target_user_email} approved")
+                except Exception as e:
+                    logging.error(f"Failed to approve {target_user_email}: {e}")
+                    db.session.rollback()
+                    message = "Internal server error."
             else:
                 message = "User not found."
+                logging.warning(f"User {target_user_email} not found for approval")
+        elif "reset_password" in request.form:
+            target_user = User.query.filter_by(email=target_user_email).first()
+            if target_user:
+                new_password = secrets.token_urlsafe(12)
+                target_user.set_password(new_password)
+                try:
+                    db.session.commit()
+                    message = f"Password reset for {target_user_email}. New temporary password: {new_password}"
+                    logging.info(f"Password reset for {target_user_email}")
+                except Exception as e:
+                    logging.error(f"Failed to reset password for {target_user_email}: {e}")
+                    db.session.rollback()
+                    message = "Internal server error."
+            else:
+                message = "User not found."
+                logging.warning(f"User {target_user_email} not found for password reset")
         else:
             try:
                 new_quota = int(request.form["quota"])
                 target_user = User.query.filter_by(email=target_user_email).first()
                 if target_user:
                     target_user.quota = new_quota
-                    db.session.commit()
-                    message = f"Quota updated for {target_user_email}"
+                    try:
+                        db.session.commit()
+                        message = f"Quota updated for {target_user_email}"
+                        logging.info(f"Quota updated for {target_user_email}: {new_quota}")
+                    except Exception as e:
+                        logging.error(f"Failed to update quota for {target_user_email}: {e}")
+                        db.session.rollback()
+                        message = "Internal server error."
                 else:
                     message = "User not found."
+                    logging.warning(f"User {target_user_email} not found for quota update")
             except ValueError:
                 message = "Invalid quota input."
+                logging.error(f"Invalid quota input for {target_user_email}")
 
     users = User.query.all()
+    logging.debug("Rendering admin panel")
     return render_template_string(ADMIN_TEMPLATE, users=users, message=message)
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
+    logging.info(f"Starting Flask app on port {port}")
     app.run(host="0.0.0.0", port=port, debug=True)
