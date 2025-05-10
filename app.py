@@ -111,7 +111,7 @@ AUTH_TEMPLATE = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>{{ title }} | MACC Chart Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -129,39 +129,44 @@ AUTH_TEMPLATE = """
       transform: scale(1.05);
     }
     ::-webkit-scrollbar {
-      width: 8px;
+      width: 6px;
     }
     ::-webkit-scrollbar-track {
       background: #f1f1f1;
     }
     ::-webkit-scrollbar-thumb {
       background: #4b5563;
-      border-radius: 4px;
+      border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
       background: #374151;
     }
+    input, button {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col">
-  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-center">Welcome to MACC Chart Generator</h1>
+  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
+    <div class="container mx-auto px-4 py-4">
+      <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-center">MACC Chart Generator</h1>
     </div>
   </header>
-  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in max-w-md mx-auto">
-      <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 text-center mb-8">{{ title }}</h2>
-      <form method="POST" class="space-y-6">
+  <main class="flex-grow container mx-auto px-4 py-8">
+    <div class="bg-white shadow-lg rounded-xl p-6 fade-in w-full max-w-md mx-auto">
+      <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 text-center mb-6">{{ title }}</h2>
+      <form method="POST" class="space-y-4">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-700">Email</label>
           <input type="email" name="username" id="username" placeholder="Enter your email" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
           <input type="password" name="password" id="password" placeholder="Enter your password" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="remember" class="flex items-center text-sm font-medium text-gray-700">
@@ -169,12 +174,12 @@ AUTH_TEMPLATE = """
           </label>
         </div>
         <div class="text-center">
-          <button type="submit" class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale">
+          <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             {{ title }}
           </button>
         </div>
       </form>
-      <p class="text-center text-red-600 mt-4">{{ message }}</p>
+      <p class="text-center text-red-600 mt-4 text-sm">{{ message }}</p>
       <p class="text-center text-sm text-gray-600 mt-4">
         {% if title == "Login" %}
           Don't have an account? <a href="{{ url_for('register') }}" class="text-indigo-600 hover:underline">Register here</a>
@@ -184,9 +189,9 @@ AUTH_TEMPLATE = """
       </p>
     </div>
   </main>
-  <footer class="bg-gray-800 text-white py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <p class="text-sm">© 2025 MACC Chart Generator. All rights reserved.</p>
+  <footer class="bg-gray-800 text-white py-4">
+    <div class="container mx-auto px-4 text-center">
+      <p class="text-xs">© 2025 MACC Chart Generator. All rights reserved.</p>
     </div>
   </footer>
 </body>
@@ -198,12 +203,12 @@ HTML_TEMPLATE = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MACC Chart Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
+      from {reta opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
     .fade-in {
@@ -216,105 +221,115 @@ HTML_TEMPLATE = """
       transform: scale(1.05);
     }
     ::-webkit-scrollbar {
-      width: 8px;
+      width: 6px;
     }
     ::-webkit-scrollbar-track {
       background: #f1f1f1;
     }
     ::-webkit-scrollbar-thumb {
       background: #4b5563;
-      border-radius: 4px;
+      border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
       background: #374151;
     }
-    
     .username-display {
-    background: linear-gradient(45deg, #4b5563, #1f2937);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    display: inline-block;
-    position: absolute;
-    top: 13px;
-    right: -480px;
-    transform: translateY(1rem);
-}
-
+      background: linear-gradient(45deg, #4b5563, #1f2937);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 0.75rem;
+    }
+    @media (max-width: 640px) {
+      .username-display {
+        top: 60px;
+        right: 10px;
+        font-size: 0.7rem;
+        padding: 0.4rem 0.8rem;
+      }
+    }
+    input, button {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col">
-  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
-      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">MACC Chart Generator</h1>
-      <form method="POST" action="{{ url_for('logout') }}">
-        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 hover-scale">
+  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
+    <div class="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
+      <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-center sm:text-left">MACC Chart Generator</h1>
+      <form method="POST" action="{{ url_for('logout') }}" class="mt-2 sm:mt-0">
+        <button type="submit" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-300 hover-scale text-sm">
           Logout
         </button>
       </form>
     </div>
   </header>
-  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
+  <main class="flex-grow container mx-auto px-4 py-8 relative">
     <div class="username-display">
-      UserId:-{{session['user'] }}
+      UserId: {{ session['user'] }}
     </div>
-    <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in mt-12">
-      <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 text-center mb-8">Generate Your MACC Chart</h2>
-      <form method="POST" class="space-y-6 max-w-3xl mx-auto">
+    <div class="bg-white shadow-lg rounded-xl p-6 fade-in mt-12">
+      <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 text-center mb-6">Generate Your MACC Chart</h2>
+      <form method="POST" class="space-y-4">
         <div>
           <label for="project_name" class="block text-sm font-medium text-gray-700">Organisation Name</label>
           <input type="text" name="project_name" id="project_name" placeholder="Enter Organisation Name" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="categories" class="block text-sm font-medium text-gray-700">Interventions/Projects (comma-separated)</label>
           <input type="text" name="categories" id="categories" placeholder="Enter Interventions/Projects" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="values" class="block text-sm font-medium text-gray-700">MACC Value In USD/Ton CO2 (comma-separated)</label>
           <input type="text" name="values" id="values" placeholder="Enter MACC Values" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="widths" class="block text-sm font-medium text-gray-700">CO2 Abatement Value (Million Ton) (comma-separated)</label>
           <input type="text" name="widths" id="widths" placeholder="Enter CO2 Abatement Values" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="line_value" class="block text-sm font-medium text-gray-700">Internal Carbon Price in USD/Ton CO2 (optional)</label>
           <input type="number" name="line_value" id="line_value" placeholder="Enter Internal Carbon Price"
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div class="text-center">
-          <button type="submit" class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale">
+          <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             Generate Chart
           </button>
         </div>
       </form>
       {% if chart %}
-        <div class="mt-12">
-          <h3 class="text-xl font-semibold text-gray-800 text-center mb-6">Generated Chart</h3>
-          <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
-            <img src="data:image/png;base64,{{ chart }}" alt="MACC Chart" class="max-w-full h-auto mx-auto rounded-lg shadow-md hover-scale">
+        <div class="mt-8">
+          <h3 class="text-lg font-semibold text-gray-800 text-center mb-4">Generated Chart</h3>
+          <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+            <img src="data:image/png;base64,{{ chart }}" alt="MACC Chart" class="w-full h-auto mx-auto rounded-lg shadow-md hover-scale">
           </div>
         </div>
       {% endif %}
       {% if session['user'] == 'admin@example.com' %}
-        <div class="mt-8 text-center">
-          <a href="{{ url_for('admin') }}" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 hover-scale">
+        <div class="mt-6 text-center">
+          <a href="{{ url_for('admin') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             Go to Admin Panel
           </a>
         </div>
       {% endif %}
     </div>
   </main>
-  <footer class="bg-gray-800 text-white py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <p class="text-sm">© 2025 MACC Chart Generator. All rights reserved.</p>
+  <footer class="bg-gray-800 text-white py-4">
+    <div class="container mx-auto px-4 text-center">
+      <p class="text-xs">© 2025 MACC Chart Generator. All rights reserved.</p>
     </div>
   </footer>
 </body>
@@ -326,7 +341,7 @@ ADMIN_TEMPLATE = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Admin Panel | MACC Chart Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -344,78 +359,83 @@ ADMIN_TEMPLATE = """
       transform: scale(1.05);
     }
     ::-webkit-scrollbar {
-      width: 8px;
+      width: 6px;
     }
     ::-webkit-scrollbar-track {
       background: #f1f1f1;
     }
     ::-webkit-scrollbar-thumb {
       background: #4b5563;
-      border-radius: 4px;
+      border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
       background: #374151;
     }
+    input, button {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col">
-  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
-      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">MACC Chart Generator</h1>
-      <form method="POST" action="{{ url_for('logout') }}">
-        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 hover-scale">
+  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
+    <div class="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
+      <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-center sm:text-left">MACC Chart Generator</h1>
+      <form method="POST" action="{{ url_for('logout') }}" class="mt-2 sm:mt-0">
+        <button type="submit" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-300 hover-scale text-sm">
           Logout
         </button>
       </form>
     </div>
   </header>
-  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="bg-white shadow-2xl rounded-2xl p-8 fade-in max-w-2xl mx-auto">
-      <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 text-center mb-8">Admin Panel</h2>
-      <form method="POST" class="space-y-6">
+  <main class="flex-grow container mx-auto px-4 py-8">
+    <div class="bg-white shadow-lg rounded-xl p-6 fade-in w-full max-w-2xl mx-auto">
+      <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 text-center mb-6">Admin Panel</h2>
+      <form method="POST" class="space-y-4">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-700">User Email</label>
           <input type="email" name="username" id="username" placeholder="Enter user email" required
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div>
           <label for="quota" class="block text-sm font-medium text-gray-700">New Quota (optional)</label>
           <input type="number" name="quota" id="quota" placeholder="Enter new quota"
-                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3">
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
-        <div class="flex justify-center gap-4">
-          <button type="submit" class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale">
+        <div class="flex flex-col sm:flex-row justify-center gap-3">
+          <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             Update Quota
           </button>
-          <button type="submit" name="approve" class="inline-flex items-center px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 hover-scale">
+          <button type="submit" name="approve" class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             Approve User
           </button>
-          <button type="submit" name="reset_password" class="inline-flex items-center px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition duration-300 hover-scale">
+          <button type="submit" name="reset_password" class="w-full sm:w-auto px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             Reset Password
           </button>
         </div>
       </form>
-      <p class="text-center text-green-600 mt-4 font-semibold">{{ message }}</p>
-      <h3 class="text-xl font-semibold text-gray-800 text-center mt-8 mb-4">Current Users</h3>
-      <ul class="space-y-3">
+      <p class="text-center text-green-600 mt-4 text-sm font-semibold">{{ message }}</p>
+      <h3 class="text-lg font-semibold text-gray-800 text-center mt-6 mb-4">Current Users</h3>
+      <ul class="space-y-2">
         {% for user in users %}
-          <li class="bg-gray-50 p-4 rounded-lg shadow-sm">
+          <li class="bg-gray-50 p-3 rounded-lg shadow-sm text-sm">
             <span class="font-medium">{{ user.email }}</span> - 
             Quota: {{ user.quota if user.quota is not none else "Unlimited" }} - 
             Approved: {{ "Yes" if user.approved else "No" }}
           </li>
         {% endfor %}
       </ul>
-      <div class="text-center mt-8">
-        <a href="{{ url_for('index') }}" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 hover-scale">
+      <div class="text-center mt-6">
+        <a href="{{ url_for('index') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
           Back to Main App
         </a>
       </div>
     </div>
   </main>
-  <footer class="bg-gray-800 text-white py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <p class="text-sm">© 2025 MACC Chart Generator. All rights reserved.</p>
+  <footer class="bg-gray-800 text-white py-4">
+    <div class="container mx-auto px-4 text-center">
+      <p class="text-xs">© 2025 MACC Chart Generator. All rights reserved.</p>
     </div>
   </footer>
 </body>
@@ -555,7 +575,7 @@ def index():
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Limit Reached</title>
   <style>
     body {
@@ -570,29 +590,31 @@ def index():
     }
     .card {
       background: white;
-      padding: 2rem;
-      border-radius: 12px;
+      padding: 1.5rem;
+      border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      max-width: 400px;
+      max-width: 90%;
       width: 100%;
       text-align: center;
     }
     h2 {
       color: #dc3545;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
+      font-size: 1.5rem;
     }
     p {
       color: #555;
-      margin-bottom: 1.3rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
     }
     .logout-button {
       background-color: #dc3545;
       color: white;
-      padding: 10px 15px;
+      padding: 8px 12px;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 0.9rem;
     }
     .logout-button:hover {
       background-color: #c82333;
