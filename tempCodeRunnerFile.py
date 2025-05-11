@@ -3,7 +3,6 @@ matplotlib.use('Agg')
 
 from flask import Flask, request, render_template_string, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 import matplotlib.pyplot as plt
 import numpy as np
 import io
@@ -11,13 +10,15 @@ import base64
 import random
 import re
 from datetime import datetime
+import sqlite3
+from sqlalchemy import inspect
 import secrets
 import os
 import logging
 import bcrypt
 import pytz
 
-# Helper function for IST time
+# Helper function to get current IST time
 def get_ist_time():
     ist = pytz.timezone('Asia/Kolkata')
     return datetime.now(ist)
@@ -31,7 +32,7 @@ class ISTFormatter(logging.Formatter):
             return dt.strftime(datefmt)
         return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
-# Configure logging
+# Configure logging with IST timestamps
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -44,11 +45,9 @@ for handler in logging.getLogger().handlers:
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_urlsafe(32))
 
-# PostgreSQL configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://macc_user:macc_password@localhost:5432/macc_db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 
 EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
@@ -75,8 +74,27 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.email}>'
 
+def update_database_schema():
+    inspector = inspect(db.engine)
+    if not inspector.has_table('user'):
+        db.create_all()
+    else:
+        columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'created_at' not in columns:
+            with sqlite3.connect('users.db') as conn:
+                conn.execute('ALTER TABLE user ADD COLUMN created_at DATETIME')
+                conn.commit()
+        if 'remember_token' not in columns:
+            with sqlite3.connect('users.db') as conn:
+                conn.execute('ALTER TABLE user ADD COLUMN remember_token VARCHAR(100)')
+                conn.commit()
+        if 'last_login' not in columns:
+            with sqlite3.connect('users.db') as conn:
+                conn.execute('ALTER TABLE user ADD COLUMN last_login DATETIME')
+                conn.commit()
+
 with app.app_context():
-    # db.create_all()  # Remove or comment out
+    update_database_schema()
     if not User.query.filter_by(email='admin@example.com').first():
         admin = User(
             email='admin@example.com',
@@ -88,7 +106,6 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
 
-# Templates (unchanged from your original code)
 AUTH_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -157,7 +174,7 @@ AUTH_TEMPLATE = """
           </label>
         </div>
         <div class="text-center">
-          <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
+          <button type="submit" class="w-full px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             {{ title }}
           </button>
         </div>
@@ -288,7 +305,7 @@ HTML_TEMPLATE = """
                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-3">
         </div>
         <div class="text-center">
-          <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
+          <button type="submit" class="w-full px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 hover-scale text-sm">
             Generate Chart
           </button>
         </div>
@@ -633,7 +650,7 @@ def index():
 
             total_abatement = sum(widths)
             x_positions = np.cumsum([0] + widths[:-1])
-            colors = ["#" + ''.join(random.choices('0123456789ABCDEF', k=6)) for _ in categories]
+            colors = ["#" + ''.join(random.choices('0123456786789ABCDEF', k=6)) for _ in categories]
 
             plt.figure(figsize=(20, 25))
             plt.bar(x_positions, values, width=widths, color=colors, edgecolor='black', align='edge')
@@ -756,4 +773,5 @@ def admin():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    logging.info(f"Starting Flask app on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
